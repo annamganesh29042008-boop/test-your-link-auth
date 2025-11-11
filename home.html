@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+<meta charset=\"utf-8\">
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
+<title>Home — TEST YOUR LINK</title>
+<link rel=\"icon\" href=\"data:,\">
+<style>
+  :root{
+    --bg:#f4f4f6; --card:#fff; --muted:#64748b; --accent:#111827;
+    --safe-bg:#e6ffed; --safe-fg:#046a2f;
+    --warn-bg:#fff7e6; --warn-fg:#6b4b00;
+    --danger-bg:#ffe6e6; --danger-fg:#8b0000;
+  }
+  body{font-family:Arial, system-ui; background:var(--bg); margin:0; color:var(--accent);}
+  header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.06); position:sticky; top:0}
+  .logo{display:flex;gap:10px;align-items:center}
+  .mark{width:42px;height:42px;border-radius:10px;background:#111827;color:#fff;display:grid;place-items:center;font-weight:700}
+  .wrap{max-width:980px;margin:24px auto;padding:0 18px}
+  .card{background:#fff;padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.06);margin-bottom:14px}
+  .row{display:flex;gap:8px}
+  input[type=text]{flex:1;padding:12px;border-radius:10px;border:1px solid #e6e9ef;font-size:14px}
+  button{padding:12px 14px;border-radius:10px;border:0;background:#111827;color:#fff;cursor:pointer}
+  .result{margin-top:12px;padding:12px;border-radius:10px;font-weight:600}
+  .safe{background:var(--safe-bg);color:var(--safe-fg)}
+  .warn{background:var(--warn-bg);color:var(--warn-fg)}
+  .danger{background:var(--danger-bg);color:var(--danger-fg)}
+  .reasons{margin-top:8px;margin-left:16px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class=\"logo\">
+    <div class=\"mark\">TY</div>
+    <div style=\"font-weight:800\">TEST YOUR LINK</div>
+  </div>
+  <div>
+    <button id=\"logoutBtn\" style=\"background:#e11d48\">Logout</button>
+  </div>
+</header>
+
+<div class=\"wrap\">
+  <div class=\"card\">
+    <h2>Check a link</h2>
+    <div class=\"row\">
+      <input id=\"urlInput\" type=\"text\" placeholder=\"Paste a link (e.g. https://example.com)\">
+      <button id=\"analyzeBtn\">Analyze</button>
+    </div>
+    <div id=\"resultBox\" style=\"display:none\">
+      <div id=\"verdict\" class=\"result\"></div>
+      <div id=\"reasons\" class=\"reasons\"></div>
+    </div>
+    <div class=\"reasons\">Note: Heuristic only. For production, add Google Safe Browsing server check.</div>
+  </div>
+</div>
+
+<script src=\"https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js\"></script>
+<script src=\"https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js\"></script>
+<script src=\"firebase.js\"></script>
+<script>
+// Protect page
+window.firebaseAuth.onAuthStateChanged(u => {
+  if(!u){ window.location.href='login.html'; }
+});
+
+document.getElementById('logoutBtn').onclick = async () => {
+  await window.firebaseAuth.signOut();
+  window.location.href = 'login.html';
+};
+
+function isIp(host){ return /^(?:\\d{1,3}\\.){3}\\d{1,3}$/.test(host); }
+const SHORTENERS = [\"bit.ly\",\"goo.gl\",\"t.co\",\"tinyurl.com\",\"rb.gy\",\"is.gd\",\"ow.ly\",\"buff.ly\",\"cut.ly\",\"s.id\"];
+
+function analyzeUrl(raw){
+  const reasons=[]; let score=0; let url=null;
+  try{ url = new URL(raw); }catch(e){ try{ url=new URL('http://'+raw); reasons.push('No scheme (assumed http)'); score+=1; }catch(e2){ return {verdict:'Invalid', reasons:['Not a valid URL']} } }
+  const host=url.hostname.toLowerCase(); const full=url.href;
+  if(url.protocol==='http:'){ reasons.push('Uses HTTP (not HTTPS)'); score+=2; }
+  if(isIp(host)){ reasons.push('Hostname is a raw IP'); score+=2; }
+  if(full.includes('@')){ reasons.push('Contains @ which can hide true destination'); score+=2; }
+  if(host.split('.').length-1>=4){ reasons.push('Excessive subdomains'); score+=1; }
+  if(full.length>120){ reasons.push('Very long URL'); score+=1; }
+  if(/[^\\x20-\\x7E]/.test(full)){ reasons.push('Contains unicode'); score+=2; }
+  const kw=['login','verify','secure','update','bank','account','bonus','free','win','gift'];
+  const found=kw.filter(w=>full.toLowerCase().includes(w)); if(found.length){ reasons.push('Risky keywords: '+found.join(', ')); score+=1; }
+  const isShort = SHORTENERS.some(s=>host===s||host.endsWith('.'+s)); if(isShort){ reasons.push('Shortened link — hidden destination'); score+=1; }
+  let verdict='Safe'; if(score>=4) verdict='Dangerous'; else if(score>=2) verdict='Warning';
+  return {verdict, reasons};
+}
+
+document.getElementById('analyzeBtn').onclick = () => {
+  const raw = document.getElementById('urlInput').value.trim(); if(!raw){ alert('Enter a link'); return; }
+  const r = analyzeUrl(raw);
+  const resultBox = document.getElementById('resultBox');
+  const verdictEl = document.getElementById('verdict');
+  const reasonsEl = document.getElementById('reasons');
+  resultBox.style.display='block';
+  verdictEl.className = 'result ' + (r.verdict==='Safe'?'safe': r.verdict==='Warning'?'warn':'danger');
+  verdictEl.textContent = 'Verdict: ' + r.verdict;
+  reasonsEl.innerHTML = r.reasons.length? '<ul>'+r.reasons.map(x=>'<li>'+x+'</li>').join('')+'</ul>' : 'No specific concerns.';
+};
+</script>
+</body>
+</html>
