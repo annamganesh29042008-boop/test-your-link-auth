@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TEST YOUR LINK — Website</title>
+
+<style>
+    body { font-family: Arial; background:#f4f4f4; margin:0; }
+    .page { display:none; padding:20px; }
+    .container {
+        max-width:400px; margin:40px auto; background:white;
+        padding:30px; border-radius:10px; box-shadow:0 0 10px #ccc;
+    }
+    .logo { font-size:28px; font-weight:bold; text-align:center; margin-bottom:20px; }
+    input {
+        width:100%; padding:10px; margin-top:10px;
+        border:1px solid #ccc; border-radius:6px;
+    }
+    button {
+        width:100%; padding:12px; background:black; color:white;
+        border:0; border-radius:6px; cursor:pointer; margin-top:12px;
+    }
+    header {
+        background:white; padding:15px 25px; display:flex;
+        justify-content:space-between; align-items:center;
+        box-shadow:0 2px 5px #ddd;
+    }
+    .result { margin-top:20px; padding:20px; border-radius:8px; font-weight:bold; }
+    .safe { background:#d1ffd6; color:#0a7a14; }
+    .warn { background:#fff5cc; color:#806b00; }
+    .danger { background:#ffd6d6; color:#8b0000; }
+</style>
+</head>
+<body>
+
+<div class="page" id="loginPage">
+    <div class="container">
+        <div class="logo">TEST YOUR LINK</div>
+        <h3>Login with Google (Demo)</h3>
+        <button onclick="googleLogin()">Continue with Google</button>
+    </div>
+</div>
+
+<div class="page" id="passwordPage">
+    <div class="container">
+        <h2>Create Password</h2>
+        <input type="password" id="p1" placeholder="Enter new password">
+        <input type="password" id="p2" placeholder="Confirm password">
+        <button onclick="savePassword()">Save Password</button>
+    </div>
+</div>
+
+<div class="page" id="homePage">
+    <header>
+        <div class="logo">TEST YOUR LINK</div>
+        <button onclick="logout()">Logout</button>
+    </header>
+
+    <div class="container" style="margin-top:30px;">
+        <h2>Welcome!</h2>
+        <p>Paste any link to check whether it is Safe or Dangerous.</p>
+        <button onclick="showPage('checkPage')">Go to Link Checker</button>
+    </div>
+</div>
+
+<div class="page" id="checkPage">
+    <header>
+        <div class="logo">TEST YOUR LINK</div>
+        <button onclick="showPage('homePage')">Home</button>
+    </header>
+
+    <div class="container" style="margin-top:30px;">
+        <h2>Check a Link</h2>
+        <input type="text" id="urlInput" placeholder="Paste a link here">
+        <button onclick="analyze()">Check</button>
+
+        <div id="output"></div>
+    </div>
+</div>
+
+<script>
+function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.getElementById(id).style.display = 'block';
+    window.scrollTo(0,0);
+}
+
+function googleLogin() {
+    const user = {
+        email: "demo_user@example.com",
+        uid: Date.now().toString(),
+        firstTime: true
+    };
+    localStorage.setItem("tyl_user", JSON.stringify(user));
+    showPage("passwordPage");
+}
+
+function savePassword() {
+    const p1 = document.getElementById("p1").value;
+    const p2 = document.getElementById("p2").value;
+
+    if (p1.length < 6) return alert("Password must be at least 6 characters!");
+    if (p1 !== p2) return alert("Passwords do not match!");
+
+    const user = JSON.parse(localStorage.getItem("tyl_user"));
+    user.password = p1;
+    user.firstTime = false;
+    localStorage.setItem("tyl_user", JSON.stringify(user));
+
+    showPage("homePage");
+}
+
+function logout() {
+    localStorage.removeItem("tyl_user");
+    showPage("loginPage");
+}
+
+function analyze() {
+    const url = document.getElementById("urlInput").value.trim();
+    const output = document.getElementById("output");
+
+    if (!url) return alert("Enter a link!");
+
+    let verdict = "Safe";
+    let reasons = [];
+
+    if (url.startsWith("http:")) reasons.push("Uses HTTP instead of HTTPS.");
+    if (url.length > 120) reasons.push("URL is unusually long.");
+    if (url.includes("@")) reasons.push("Contains '@' which may mislead users.");
+
+    const risky = ["verify","bank","gift","login","free","win","bonus","money"];
+    risky.forEach(w => {
+        if (url.toLowerCase().includes(w)) reasons.push("Contains risky word: " + w);
+    });
+
+    if (reasons.length >= 3) verdict = "Dangerous";
+    else if (reasons.length === 2) verdict = "Warning";
+
+    output.innerHTML = `
+        <div class="result ${verdict === 'Safe' ? 'safe' : verdict === 'Warning' ? 'warn' : 'danger'}">
+            Verdict: ${verdict}<br>
+            <ul>${reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+        </div>
+    `;
+}
+
+(function(){
+    const u = JSON.parse(localStorage.getItem("tyl_user"));
+    if (!u) return showPage("loginPage");
+    if (u.firstTime) return showPage("passwordPage");
+    return showPage("homePage");
+})();
+</script>
+
+</body>
+</html>
